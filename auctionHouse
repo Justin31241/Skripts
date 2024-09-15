@@ -1,0 +1,181 @@
+function auctionHouse(p: player, page: integer):
+  #send "&a%{_page}%" to {_p}
+  set metadata tag "auction" of {_p} to chest inventory with 6 rows named "&8Auctions Browser"
+  loop integers between 0 and 60:
+    set slot loop-value of metadata tag "auction" of {_p} to air
+  set slot 4 of metadata tag "auction" of {_p} to oak hanging sign named "&6Auction Help" with lore "&8Information%nl%%nl%&eHow to buy?%nl%&7 Click on the item and if%nl%&7 you have enough you will%nl%&7 obtain it!%nl%%nl%&eHow to sell?%nl% &7Type /ah <number> while%nl%&7 holding the item you%nl% &7wish to sell!%nl%%nl%&4WARNING:%nl%&4 Removing auctions not%nl%&4 added /ah carefully!"
+  set slot 0,1,2,3,5,6,7,8,45,46,47,48,49,50,51,52,53 of metadata tag "auction" of {_p} to gray stained glass pane named " "
+  
+  #Auction Items
+  set {_slots::*} to integers between 9 and 44
+  if {_page} is 1:
+    set {_addition} to 0
+    set metadata tag "page" of {_p} to 1
+  else:
+    set {_addition} to (36 * {_page}) - 36
+    set metadata tag "page" of {_p} to {_page}
+  #send {_addition} to {_p}
+  loop 36 times:
+    add 1 to {_}
+    set slot {_slots::%{_}%} of metadata tag "auction" of {_p} to {auctionItems::%{_} + {_addition}%}
+    if {auctionItems::%{_} + {_addition}%} is set:
+      #send "%{_} + {_addition}% | &a%{auctionItems::%{_} + {_addition}%}%" to {_p}
+  loop {_slots::*}:
+    if slot loop-value of metadata tag "auction" of {_p} is air:
+      set slot loop-value of metadata tag "auction" of {_p} to light gray stained glass pane named " "
+  set slot 49 of metadata tag "auction" of {_p} to barrier named "&cClose"
+  set slot 50 of metadata tag "auction" of {_p} to golden horse armor named "&aManage Auctions" with lore "&7Manage the auctions you%nl%&7currently have active.%nl%%nl%&eClick to manage!%nl%&c&lCOMING SOON"
+  if size of {auctionItems::*} > 36 + {_addition}:
+    set slot 53 of metadata tag "auction" of {_p} to arrow named "&aNext Page"
+  if {_page} > 1:
+    set slot 45 of metadata tag "auction" of {_p} to arrow named "&aPrevious Page"
+  open (metadata tag "auction" of {_p}) to {_p}
+
+function personalAuction(p: player)
+
+on right click on entity:
+  if block 2 under event-entity is command block:
+    auctionHouse(player, 1)
+
+command ah [<integer>]:
+  trigger:
+    if {disableAh} is true:
+      send "&cThis feature is temporarily disabled!"
+      stop
+    if arg-1 is not set:
+      auctionHouse(player, 1)
+      set metadata tag "page" of player to 1
+    else:
+      if player's held item is air:
+        stop
+      if {auctions::%player's uuid%} = 5:
+        send "&cYou can only have 5 auctions at once!" to player
+        stop
+      if arg-1 > 25000000000:
+        send "&cYou can't add auctions over 25B!" to player
+        stop
+      if player's held item is a nether star:
+        send "&cYou can't sell this!" to player
+        stop
+      add 1 to {_}
+      loop {auctionItems::*}:
+        add 1 to {_}
+      set {_i} to name of player's held item
+      if {_i} is not set:
+        set {_i} to player's held item
+      send "&eYou sucessfully auctioned %{_i}% &efor &6%regex(arg-1)% coins&e!" to player
+      add 1 to {auctions::%player's uuid%}
+      play sound "block.note_block.pling" with volume 1 and pitch 1 for player
+      loop lore of player's held item:
+        add 1 to {_lore}
+      set {_item} to player's held item
+      set line {_lore} + 1 of lore of {_item} to "&8&l-------------"
+      set line {_lore} + 2 of lore of {_item} to "&7Seller: %player's prefix%%player%"
+      set line {_lore} + 3 of lore of {_item} to "&7Buy it now: &6%regex(arg-1)% coins"
+      set line {_lore} + 4 of lore of {_item} to "&8 "
+      set line {_lore} + 5 of lore of {_item} to "&eClick to buy!"
+      add 1 to {auction}
+      set line {_lore} + 6 of lore of {_item} to "&8&nID: %regex({auction})%"
+      remove player's held item from player's inventory
+      add {_item} to {auctionItems::*}
+
+command admin_ahEnable:
+  permission: op
+  trigger:
+    clear {disableAh}
+    
+command admin_ahDisable:
+  permission: op
+  trigger:
+    set {disableAh} to true
+
+on inventory click:
+  if (metadata tag "auction" of player) = event-inventory:
+    set {_item} to event-slot
+    if event-slot is 49:
+      close player's inventory
+    if event-slot is 53:
+      if event-slot is a arrow:
+        auctionHouse(player, metadata tag "page" of player + 1)
+        wait 1 second
+        stop
+    if event-slot is 45:
+      if event-slot is a arrow:
+        auctionHouse(player, metadata tag "page" of player - 1)
+        wait 1 second
+        stop
+    cancel event
+    if {auctionItems::*} does not contain event-slot:
+      if event-slot is not light gray stained glass pane or gray stained glass pane or oak hanging sign or barrier or golden horse armor or arrow:
+        send "&cYou were too late and it was already bought!" to player
+        auctionHouse(player, 1)
+    if player doesn't have enough space for 1 of stone:
+      send "&cYou dont have any inventory space for this!" to player
+      stop
+    if lore of event-slot contains "&7Seller: %player's prefix%%player%":
+      send "&cYou can't buy your own auction!" to player
+      stop
+    if event-slot is light gray stained glass pane or gray stained glass pane or oak hanging sign or barrier or golden horse armor or arrow:
+      stop
+    if {disableAh} is true:
+      send "&cThis feature is temporarily disabled!"
+      stop
+    loop lore of event-slot:
+      add 1 to {_lore}
+      if loop-value contains "&eClick to buy!":
+        set {_lore} to {_lore} - 3
+        set {_seller} to {_lore}
+    set {_cost} to line {_lore} of lore of event-slot
+    replace all "&7Buy it now: " with "" in {_cost}
+    replace all "," with "" in {_cost}
+    replace all " coins" with "" in {_cost}
+    if {Coins::%player's uuid%} >= unformatted {_cost} parsed as number:
+      set {_seller} to line {_seller} of lore of event-slot
+      replace all "&7Seller: " with "" in {_seller}
+      set {_trueSeller} to unformatted {_seller} parsed as offline player
+      if {_trueSeller} is not set:
+        set {_sell::*} to {_seller} split at " "
+        set {_trueSeller} to unformatted {_sell::2} parsed as offline player
+      add unformatted {_cost} parsed as number to {Coins::%{_trueSeller}'s uuid%}
+      remove 1 from {auctions::%{_trueSeller}'s uuid%}
+      set {_name} to name of event-slot
+      if {_name} is not set:
+        set {_name} to type of event-slot
+      send "&eYour auction for %{_name}% &ewas sold for &6%regex(unformatted {_cost})% Coins&e!" to {_trueSeller}
+      play sound "block.note_block.bell" with volume 1 and pitch 1 for {_trueSeller}
+      loop {auctionItems::*}:
+        add 1 to {_}
+        if {_past} is not set:
+          if loop-value is event-slot:
+            set {_past} to true
+            set {_num} to {_}
+      set {_size} to ({_} - {_num})
+      #send "&e%{_size}%" to player
+      set {_slot} to 0
+      if {_size} >= 1:
+        loop {_size} times:
+          #send " "
+          #send "&4Item to be Replaced: %{auctionItems::%{_num} + {_slot}%}%" to player
+          #send "&4Replaced Item: %{auctionItems::%{_num} + loop-number%}%" to player
+          #send " "
+          set {auctionItems::%{_num} + {_slot}%} to {auctionItems::%{_num} + loop-number%}
+          add 1 to {_slot}
+          delete {auctionItems::%{_}%}
+      else:
+        remove event-slot from {auctionItems::*}
+        clear {auctionItems::*}
+      add 2 to {_lore}
+      delete line {_lore} + 1 of lore of {_item}
+      delete line {_lore} of lore of {_item}
+      delete line {_lore} - 1 of lore of {_item}
+      delete line {_lore} - 2 of lore of {_item}
+      delete line {_lore} - 3 of lore of {_item}
+      delete line {_lore} - 4 of lore of {_item}
+      remove unformatted {_cost} parsed as number from {Coins::%player's uuid%}
+      send "&eYou bought %{_name}% &efor &6%regex({_cost})% Coins&e!" to player
+      give player {_item}
+      auctionHouse(player, 1)
+    else:
+      send "&cYou don't have enough money!" to player
+
+    
