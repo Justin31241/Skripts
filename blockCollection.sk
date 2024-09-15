@@ -1,0 +1,44 @@
+on load:
+	set {oakLog} to oak log named "&fOak Log" with lore "&8Collection Item%nl%%nl%&f&lCOMMON"
+
+on block break:
+	clear drops
+	if event-block is oak wood:
+		set {_drop} to "Oak Log"
+	if {_drop} is not set:
+		stop
+	if {collection::%{_drop}%::%player's uuid%} is not set:
+		send "&6&lCOLLECTION DISCOVERED &e%{_drop}%" to player
+		play sound "entity.player.levelup" with volume 1 and pitch 1 for player
+	loop {requirmentsCollections::*}:
+		add 1 to {_}
+		if {_} = 1:
+			set {_1} to 0
+		else:
+			set {_1} to "(%roman numeral of {_} - 1%)"
+		if ({collection::%{_drop}%::%player's uuid%} + 1) = loop-value:
+			if {Rewards::%{_drop}%::%{_}%} is not set:
+				send action bar "&cYou were unable to level up the collection due to being maxed!" to player
+				exit loop
+			send "&8&l| &6&lCOLLECTION UP &e%uncolored {_drop}% &7%{_1}% &8➡ &e(%roman numeral of {_}%)" to player
+			send "&8&l| " to player
+			send "&8&l| &7Rewards:" to player
+			set {_rewards::*} to {Rewards::%{_drop}%::%{_}%} split at "%nl%"
+			loop {_rewards::*}:
+				set {_rewardMsg} to loop-value-2
+				if {_rewardMsg} does not contain "&aGlobalXP":
+					replace every "  " with "" in {_rewardMsg}
+				replace every "&7Recipe" with " &7Recipe" in {_rewardMsg}
+				send "&8&l|  %{_rewardMsg}%" to player
+			send " " to player
+			if {recipeReward::%{_drop}%::%{_}%} is set:
+				set {recipeUnlocks::%player's uuid%} to "%{recipeReward::%{_drop}%::%{_}%}%,%{recipeUnlocks::%player's uuid%}%"
+			send "%{recipeReward::%{_drop}%::%{_}%}% | Drop %{_drop}% | Number %{_}% | Player %player%" to player
+			play sound "entity.player.levelup" with volume 2 and pitch 0.8 for player
+			play sound "entity.experience_orb.pickup" with volume 0.2 and pitch 2 for player
+			exit loop
+	if {Rewards::%{_drop}%::%{_}%} is set:
+		add 1 to {collection::%{_drop}%::%player's uuid%}
+		play sound "entity.experience_orb.pickup" for player
+	replace all " " with "" in {_drop}
+	drop 1 of {%{_drop}%} at event-block without velocity
