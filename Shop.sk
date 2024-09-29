@@ -1,0 +1,304 @@
+#███╗░░██╗██████╗░░█████╗░  ░██████╗██╗░░██╗░█████╗░██████╗░░██████╗
+#████╗░██║██╔══██╗██╔══██╗  ██╔════╝██║░░██║██╔══██╗██╔══██╗██╔════╝
+#██╔██╗██║██████╔╝██║░░╚═╝  ╚█████╗░███████║██║░░██║██████╔╝╚█████╗░
+#██║╚████║██╔═══╝░██║░░██╗  ░╚═══██╗██╔══██║██║░░██║██╔═══╝░░╚═══██╗
+#██║░╚███║██║░░░░░╚█████╔╝  ██████╔╝██║░░██║╚█████╔╝██║░░░░░██████╔╝
+#╚═╝░░╚══╝╚═╝░░░░░░╚════╝░  ╚═════╝░╚═╝░░╚═╝░╚════╝░╚═╝░░░░░╚═════╝░
+
+#Created by: Rqndomly
+
+#{shopCitizenIDs::*} stores the Citizens ID of entity
+
+on load:
+  wait 1 minute
+  loop all villagers:
+    if citizen id of loop-entity is set:
+      if {shopCitizenIDs::%citizen id of loop-entity%} is set:
+        set string tag "custom;id" of nbt of loop-value to "%{shopCitizenIDs::%citizen id of loop-entity%}%"
+        set string tag "custom;name" of nbt of loop-value to "%{shopCitizenName::%citizen id of loop-entity%}%"
+          
+on item damage:
+	cancel event
+
+command setshop <text>:
+  aliases: admin_setshop
+  permission: admin.shop.create
+  trigger:
+    if player's target entity is not set:
+      send "&a&lSHOP &8&l| &cFace a entity to set it as a shop!" to player
+      stop
+    set {_arg1} to arg-1
+    replace all " " with "" in {_arg1}
+    if {shops::*} does not contain {_arg1}:
+      set {_e} to player's target entity
+      set string tag "custom;id" of nbt of {_e} to "%{_arg1}%"
+      set {_n} to nbt of {_e}
+      set {_shop} to string tag "custom;id" of {_n}
+      set {shopCitizenIDs::%citizen id of {_e}%} to {_arg1}
+      send " " to player
+      send "&a&lSHOP &8&l| &eNew shop defined as &f""&f%{_arg1}%"" &ehas been created" to player
+      send " " to player
+      send "               &eRight-Click to Edit" to player
+      send " " to player
+      add {_arg1} to {shops::*}
+    else:
+      send "&a&lSHOP &8&l| &cThere is a already a shop with this name!" to player
+
+on right click:
+  set {_n} to nbt of event-entity
+  set {_shop} to string tag "custom;id" of {_n}
+  set {_text} to string tag "custom;name" of {_n}
+  if {_text} is not set:
+    set {_text} to {_shop}
+  set {shopCurrent::%player's uuid%} to event-entity
+  if {_shop} is set:
+    shop(player, "%{_shop}%", "%{_text}%")
+    
+function shop(p: player, id: text, n: text):
+  play sound "block.lever.click" with volume 1 and pitch 1 for {_p}
+  set metadata tag "shop" of {_p} to chest inventory with 6 rows named "%uncolored {_n}%"
+  loop numbers between 0 and 55:
+    set slot loop-number of metadata tag "shop" of {_p} to black stained glass pane named " "
+  set {_slots::*} to 10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43
+  set {_i} to string tag "custom;id" of nbt from {shopCurrent::%{_p}'s uuid%}
+  set slot {_slots::*} of metadata tag "shop" of {_p} to air
+  loop {_slots::*}:
+    add 1 to {_1}
+    set {_a} to 0
+    set {_lore} to 0
+    add 1 to {_}
+    set slot loop-value of metadata tag "shop" of {_p} to {shopItems::%{_i}%::%{_}%}
+    loop lore of slot loop-value of metadata tag "shop" of {_p}:
+      add 1 to {_lore}
+    set line {_lore} + 2 of lore of slot loop-value-1 of metadata tag "shop" of {_p} to "&7Cost:"
+    add 1 to {_lore}
+    loop 7 times:
+      if {shopItems::%{_i}%::%{_}%-%loop-number%::*} is set:
+        add 1 to {_a}
+        set {_n} to nbt of {shopItems::%{_i}%::%{_1}%}
+        set {_amount} to int tag "Amount-%{_a}%" of {_n}
+        set line {_lore} + 2 of lore of slot loop-value-1 of metadata tag "shop" of {_p} to "&8 - &f%name of {shopItems::%{_i}%::%{_}%-%{_a}%::*}% &7x%{_amount}%"
+        add 1 to {_lore}
+    set line {_lore} + 3 of lore of slot loop-value-1 of metadata tag "shop" of {_p} to "&eRight-Click to view more!"
+    set line {_lore} + 4 of lore of slot loop-value-1 of metadata tag "shop" of {_p} to "&eLeft-Click to purchase!"
+  set slot 49 of metadata tag "shop" of {_p} to barrier named "&cClose"
+  if {_p} is op:
+    set slot 50 of metadata tag "shop" of {_p} to command block named "&dEdit Shop" with lore "&7Turn on shop%nl%&7edit mode.%nl%%nl%&eClick to view!" with all item flags
+  open (metadata tag "shop" of {_p}) to {_p}
+
+on inventory close:
+  event-inventory = (metadata tag "shop" of player): 
+    if {shopRename::%player's uuid%} is not true:
+      if {shopItemAdd::%player's uuid%} is not true:
+        wait 1 tick
+        clear {shopCurrent::%player's uuid%}
+  event-inventory = (metadata tag "itemAdd" of player): 
+    wait 1 tick
+    clear {shopItemAdd::%player's uuid%}
+
+on inventory click:
+  event-inventory = (metadata tag "shop" of player): 
+    cancel event
+    if event-slot is arrow:
+      set {_shop} to string tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+      set {_text} to string tag "custom;name" of nbt of {shopCurrent::%player's uuid%}
+      shop(player, "%{_shop}%", "%{_text}%")
+    if event-slot contains 10 or 11 or 12 or 13 or 14 or 15 or 16 or 19 or 20 or 21 or 22 or 23 or 24 or 25 or 28 or 29 or 30 or 31 or 32 or 33 or 34 or 37 or 38 or 39 or 40 or 41 or 42 or 43:
+      if event-slot is not air:
+        if click action is right mouse button:
+          if slot 10 of player's current inventory is black stained glass pane:
+            stop
+          set {_p} to player
+          set {_slots::*} to 10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43
+          set {_checkSlot::*} to integers between 37 and 43
+          set {_index} to index of event-slot
+          set {_i} to string tag "custom;id" of nbt from {shopCurrent::%{_p}'s uuid%}
+          loop {_slots::*}:
+            add 1 to {_}
+            if {_index} is loop-value:
+              set slot 13 of player's current inventory to {shopItems::%{_i}%::%{_}%}
+              set {_index} to {_}
+          play sound "block.lever.click" with volume 1 and pitch 1 for {_p}
+          loop numbers between 0 and 55:
+            if loop-number is not 13:
+              set slot loop-number of player's current inventory to black stained glass pane named " "
+          set {_slots::*} to 28, 29, 30, 31, 32, 33, 34
+          set slot {_slots::*} of player's current inventory to air
+          loop 7 times:
+            clear {_lore}
+            if {shopItems::%{_i}%::%{_index}%-%loop-number%::*} is set:
+              set slot {_slots::%loop-number%} of player's current inventory to {shopItems::%{_i}%::%{_index}%-%loop-number%::*}
+              if player's inventory contains {shopItems::%{_i}%::%{_index}%-%loop-number%::*}:
+                set slot {_checkSlot::%loop-number%} of player's current inventory to lime stained glass pane named "&a✔"
+              else:
+                set slot {_checkSlot::%loop-number%} of player's current inventory to red stained glass pane named "&4✘"
+              loop lore of slot {_slots::%loop-number%} of player's current inventory:
+                add 1 to {_lore}
+              set line {_lore} + 2 of lore of slot {_slots::%loop-number%} of player's current inventory to "&7Material #%loop-number%"
+            else:
+              set slot {_slots::%loop-number%} of player's current inventory to light gray stained glass pane named " "
+          set slot 49 of player's current inventory to arrow named "&aBack"
+        if click action is left mouse button:
+          if slot 10 of player's current inventory is black stained glass pane:
+            stop
+          set {_slots::*} to 10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43
+          set {_index} to index of event-slot
+          set {_} to 1
+          loop {_slots::*}:
+            if loop-value is not {_index}:
+              add 1 to {_}
+            else:
+              exit loop
+          set {_i} to string tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+          loop 8 times:
+            if {shopItems::%{_i}%::%{_}%-%{_m}%::*} is set:
+              add 1 to {_amount}
+            add 1 to {_m}
+            if player's inventory contains {shopItems::%{_i}%::%{_}%-%{_m}%::*}:
+              add 1 to {_check}
+              remove {shopItems::%{_i}%::%{_}%-%{_m}%::*} from player's inventory
+              add {shopItems::%{_i}%::%{_}%-%{_m}%::*} to {_items::*}
+          if {_check} = {_amount}:
+            set {_i} to {shopItems::%{_i}%::%{_}%}
+            loop 8 times:
+              delete tag "Amount-%loop-number%" of nbt of {_i}
+            give player {_i}
+            play sound "block.note_block.pling" with volume 1 and pitch 2 for player
+            wait 1 tick
+            play sound "entity.item.pickup" with volume 1 and pitch 1 for player
+            send "&aYou purchased %name of {_i}%&a!"
+            remove {_requirments::*} from player's inventory
+          else:
+            send "&cInsufficient Materials!" to player
+            play sound "entity.villager.no" with volume 2 and pitch 1 for player
+            if {_check} > 0:
+              give player {_items::*}
+    if event-slot is command block:
+      if slot 45 of player's current inventory does not contain nametag:
+        set event-slot to black stained glass pane named " "
+        play sound "block.lever.click" with volume 1 and pitch 1 for player
+        wait 4 ticks
+        play sound "block.note_block.hat" with volume 1 and pitch 1 for player
+        set slot 9 of player's current inventory to nametag named "&aRename" with lore "&7Change the shop's%nl%&7header.%nl%%nl%&eClick to use!"
+        wait 2 ticks
+        play sound "block.note_block.hat" with volume 1 and pitch 1 for player
+        set slot 18 of player's current inventory to tnt named "&4Delete" with lore "&7Delete this%nl%&7shop.%nl%%nl%&cClick to use!"
+        wait 2 ticks
+        play sound "block.note_block.hat" with volume 1 and pitch 1 for player
+        set slot 27 of player's current inventory to oak hanging sign named "&aAdd Item" with lore "&7Add a new item and%nl%&7its ingredients.%nl%%nl%&eClick to use!"
+        wait 2 ticks
+        play sound "block.note_block.hat" with volume 1 and pitch 1 for player
+		if metadata tag "replacing" of player is not set:
+          set slot 36 of player's current inventory to lava bucket named "&6Replace Item" with lore "&7Replace a item%nl%&7from the shop.%nl%%nl%&eClick to use!"
+		else:
+		  set slot 36 of player's current inventory to water bucket named "&9Stop Replace Item" with lore "&7Replace a item%nl%&7from the shop.%nl%%nl%&eClick to stop!"
+        wait 2 ticks
+        play sound "block.note_block.hat" with volume 1 and pitch 0 for player
+        set event-slot to honeycomb named "&4Exit Editor" with lore "&7Hide the editor%nl%&7control pannel.%nl%%nl%&eClick to use!"
+        stop
+    if event-slot is honeycomb:
+      set {_shop} to string tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+      set {_text} to string tag "custom;name" of nbt of {shopCurrent::%player's uuid%}
+      shop(player, "%{_shop}%", "%{_text}%")
+    if event-slot is nametag:
+      set {shopRename::%player's uuid%} to true
+      close player's inventory
+      send " " to player
+      send "&a&lSHOP &8&l| &eType in chat the shops new name!" to player
+      send " " to player
+      play sound "block.note_block.pling" with volume 1 and pitch 2 for player
+    if event-slot is tnt:
+      play sound "entity.generic.explode" with volume 1 and pitch 2 for player
+      set {_i} to string tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+      remove {_i} from {shops::*}
+      delete tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+      delete tag "custom;name" of nbt of {shopCurrent::%player's uuid%}
+      clear {shopItems::%{_i}%::*}
+      send " " to player
+      send "&a&lSHOP &8&l| &eShop successfully removed!" to player
+      send " " to player
+      close player's inventory
+	if event-slot is lava bucket:
+	  set metadata tag "replacing" of player to true
+	  set slot 36 of player's current inventory to water bucket named "&9Stop Replace Item" with lore "&7Replace a item%nl%&7from the shop.%nl%%nl%&eClick to stop!"
+	if event-slot is water bucket:
+      delete tag "replacing" of player
+      set slot 36 of player's current inventory to lava bucket named "&6Replace Item" with lore "&7Replace a item%nl%&7from the shop.%nl%%nl%&eClick to use!"
+    if event-slot is oak hanging sign:
+      set {_p} to player
+      set {shopItemAdd::%player's uuid%} to true
+      play sound "block.lever.click" with volume 1 and pitch 1 for {_p}
+      set metadata tag "itemAdd" of {_p} to chest inventory with 6 rows named "Add Item"
+      loop numbers between 0 and 55:
+        set slot loop-number of metadata tag "itemAdd" of {_p} to black stained glass pane named " "
+      set {_slots::*} to 22, 37, 38, 39, 40, 41, 42, 43
+      set slot {_slots::*} of metadata tag "itemAdd" of {_p} to air
+      set slot 4 of metadata tag "itemAdd" of {_p} to oak hanging sign named "&aHelp" with lore "&7In the top slot%nl%&7place the display item.%nl%%nl%&7In the bottom 7 place%nl%&7the ingredients!%nl% "
+      set slot 49 of metadata tag "itemAdd" of {_p} to arrow named "&aBack"
+      set slot 24 of metadata tag "itemAdd" of {_p} to red stained glass pane named "&c&lCan't Confirm"
+      open (metadata tag "itemAdd" of {_p}) to {_p}
+  event-inventory = (metadata tag "itemAdd" of player): 
+    set {_slots::*} to 22, 37, 38, 39, 40, 41, 42, 43
+    if event-slot is not 22 or 37 or 38 or 39 or 40 or 41 or 42 or 43:
+      cancel event
+      if event-slot is 49:
+        open (metadata tag "shop" of player) to player
+        play sound "block.note_block.bit" with volume 1 and pitch 0 for player
+        send " " to player
+        send "&a&lSHOP &8&l| &cTo save items click the &alime glass&c!" to player
+        send " " to player
+    else:
+      wait 3 ticks
+      if slot 22 of player's current inventory is not air:
+        set {_check1} to true
+      loop numbers between 2 and 8:
+        if slot {_slots::%loop-number%} of player's current inventory is not air:
+          set {_check2} to true
+      if {_check1} is true:
+        if {_check2} is true:
+          set slot 24 of player's current inventory to lime stained glass pane named "&a&lConfirm"
+        else:
+          set slot 24 of metadata tag "itemAdd" of player to red stained glass pane named "&cConfirm" with lore "%nl%&4Place a display item%nl%&4and ingredient items!%nl% "
+      else:
+        set slot 24 of metadata tag "itemAdd" of player to red stained glass pane named "&cConfirm" with lore "%nl%&4Place a display item%nl%&4and ingredient items!%nl% "
+    if event-slot is lime stained glass pane named "&a&lConfirm":
+      set {_i} to string tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+      set {_} to 1
+      loop {shopItems::%{_i}%::*}:
+        if loop-value is set:
+          add 1 to {_}
+        else:
+          set {_} to 1
+      set {shopItems::%{_i}%::%{_}%} to slot 22 of player's current inventory
+      set {_materials::*} to 37, 38, 39, 40, 41, 42, 43
+      loop 7 times:
+        if slot {_materials::%loop-number%} of player's current inventory is not air:
+          add 1 to {_matList}
+          set {_item} to slot {_materials::%loop-number%} of player's current inventory
+          set {shopItems::%{_i}%::%{_}%-%{_matList}%::%{_item}%} to {_item}
+          set {_amount} to item amount of slot {_materials::%loop-number%} of player's current inventory
+          add nbt from "{Amount-%{_matList}%:%{_amount}%}" to nbt of {shopItems::%{_i}%::%{_}%}
+      play sound "block.barrel.close" with volume 1 and pitch 2 for player
+      send " " to player
+      send "&a&lSHOP &8&l| &aSuccessfully added item to shop!" to player
+      send " " to player
+      set {_shop} to string tag "custom;id" of nbt of {shopCurrent::%player's uuid%}
+      set {_text} to string tag "custom;name" of nbt of {shopCurrent::%player's uuid%}
+      shop(player, "%{_shop}%", "%{_text}%")
+      
+      
+      
+on chat:
+  if {shopCurrent::%player's uuid%} is set:
+    if {shopRename::%player's uuid%} is true:
+      set slot 5 of {shopCurrent::%player's uuid%}'s inventory to nametag named "%message%"
+      set string tag "custom;name" of nbt of {shopCurrent::%player's uuid%} to "%message%"
+      set {shopCitizenName::%citizen id of {shopCurrent::%player's uuid%}%} to message
+      cancel event
+      clear {shopRename::%player's uuid%}
+      send " " to player
+      send "&a&lSHOP &8&l| &eShop name now set to &f""%message%""&e!" to player
+      send " " to player
+      play sound "block.note_block.pling" with volume 1 and pitch 2 for player
+      wait 2 ticks
+      open (metadata tag "shop" of {_p}) to {_p}
